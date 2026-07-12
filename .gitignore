@@ -1,7 +1,8 @@
 __pycache__
 zzz
 models
-old_models
-old_results
+old_*
 paper_result
 data
+old2_*
+hybrid_*
