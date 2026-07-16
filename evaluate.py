@@ -11,7 +11,7 @@ import pandas as pd
 from sklearn.metrics import classification_report
 
 def evaluate_and_save(model_name, y_true, y_pred, output_csv="results/raw_metrics.csv"):
-    # Unified Binary Schema: 0 is Normal, 1 is Anomaly
+    # Schema: 0 is Normal, 1 is Anomaly
     report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
     rows = []
     

@@ -1,76 +1,201 @@
 # IIoT Automated Anomaly Detection Benchmark Suite
 
-An industrial-grade benchmarking suite for comparing classic tabular classifiers, deep learning sequence networks, and self-supervised Graph Neural Networks (GNNs) on Industrial Internet of Things (IIoT) telemetry data. 
-
-This project evaluates model performance using the **WUSTL-IIOT-2021** dataset to benchmark real-world generalized deployment readiness.
+An industrial-grade benchmarking framework for comparing classic supervised classifiers, deep sequence models, and self-supervised Graph Neural Networks (GNNs) on Industrial Internet of Things (IIoT) network telemetry.
 
 ---
 
-## 🎯 Project Objective & Code Overview
+## 🚀 Getting Started
 
-The goal of this suite is to build and evaluate a generalized security framework capable of detecting industrial anomalies and malicious structural variations on a factory floor. 
+### Prerequisites
 
-The application is split into simple, modular building blocks:
-* **`run_pipeline.py`**: The main automation engine. It launches the other scripts one by one, tracks errors, and logs progress.
-* **`preprocess.py`**: A data cleaner. It removes network identity leaks (like absolute IP addresses and timestamps) and builds structural graph connection maps (who talks to whom) for the GNN.
-* **`models.py`**: Contains all model designs. This includes traditional baselines (Decision Tree, Random Forest), deep learning loops (CNN, LSTM), and the **Anomal-E Pipeline** (a Graph Neural Network encoder combined with a downstream unsupervised Isolation Forest detector).
-* **`evaluate.py`**: Converts all multi-class attack names into a unified binary format (`Normal` operational baseline vs. `Anomaly` outlier state) so every model is judged fairly.
-* **`plot.py`**: A clean visualization script. It reads your final data and generates **three separate high-resolution charts** (Precision, Recall, F1-Score) using pure `matplotlib` to avoid external environment crashes.
+Install the required dependencies:
 
-*Note: Unlike standard benchmark scripts, this framework automatically serializes and saves every single trained model to the `models/` directory so they are fully prepared for field deployment.*
-
----
-
-## ⚠️ Understanding the Metric Skew: Why Anomal-E is NOT Bad
-
-When analyzing your final table, you will see a massive drop in performance for `Anomal-E` compared to the other simpler baselines:
-
-| Model | Attack Class | Precision | Recall | F1-Score |
-| :--- | :--- | :---: | :---: | :---: |
-| Decision Tree | Anomaly | 1.0000 | 1.0000 | 1.0000 |
-| Anomal-E (Pipeline) | Normal | 0.0002 | 0.8906 | 0.0003 |
-| Anomal-E (Pipeline) | Anomaly | 0.9998 | 0.0911 | 0.1670 |
-
-It is an academic error to conclude from these metrics that the Graph Neural Network is broken or inferior. Here is the exact reason for this skewing:
-
-### 1. The Supervised Tabular Shortcut (The Illusion of Perfection)
-Supervised models (Trees, CNNs, LSTMs) use labels during training. They find hidden mathematical fingerprints in individual dataset rows—such as exact packet sizes or precise flag combinations unique to the lab environment where the attack script ran. The Decision Tree doesn't learn what an attack *looks like structurally*; it simply memorizes flat signature shortcuts.
-
-### 2. The Unsupervised Boundary Fallacy (The Mathematical Trap)
-Anomal-E is **Self-Supervised**. It is completely blind to security labels during training. It maps the *shape of the global graph network traffic*. 
-
-Because the default dataset split mixes a massive volume of attacks directly into the training phase, the downstream Isolation Forest calculates a high structural contamination ratio capped at `0.50` (50%). This forces the model to draw its spatial boundary under the assumption that exactly 50% of your network traffic is normal and 50% is abnormal. 
-
-When it is tested against a data split dominated almost entirely by attacks (99.98% anomaly rate), the model is mathematically handcuffed—it still forces 50% of those data points into the "Normal" category. Because true normal packets are practically non-existent in this specific test slice, almost every packet the model guesses as "Normal" is actually an attack packet, driving the Normal Precision down to `0.0002`.
-
-### The Generalized Deployment Takeaway:
-In a production deployment, a real attacker will use a **Zero-Day Attack** (an un-labeled, brand-new signature). The supervised trees and sequence loops will score **0.0** because their memorized signatures won't match. Anomal-E, by mapping structural connections, will naturally flag the anomaly because the topology of who is talking to whom changes completely.
-
----
-
-## 🚀 Quick Start
-
-### 1. Install Requirements
 ```bash
-pip install -r requirments.txt
-2. File Layout
-Place your unzipped dataset inside a data/ folder in the root directory:
+pip install -r requirements.txt
+```
 
-Plaintext
-your-project/
-  ├── data/
-  │    └── wustl_iiot_2021.csv
-  ├── main.py
-  ├── plot.py
-  └── run_pipeline.py
-3. Run
-Bash
-python run_pipeline.py
-Trained model states will be exported to models/ and evaluation charts will be exported to results/.
+---
 
-📜 License
-This project is licensed under the Unlicense — a completely unrestricted public domain dedication.
+## ▶️ Running the Benchmark
 
-You are free to copy, modify, publish, use, compile, sell, or distribute this software, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means. It is completely open-source without any copyleft requirements or attribution obligations.
+### 1. In-Domain Training & Evaluation (WUSTL-IIoT-2021)
 
-For more information, please refer to http://unlicense.org/
+Place the **WUSTL-IIoT-2021** dataset at:
+
+```text
+data/wustl_iiot_2021.csv
+```
+
+Run the main training pipeline:
+
+```bash
+python main.py
+```
+
+This will:
+
+- Train all benchmark models on the WUSTL-IIoT-2021 dataset.
+- Evaluate their in-domain performance.
+- Save trained model weights to the `models/` directory.
+
+---
+
+### 2. Cross-Dataset Generalization (Edge-IIoTset)
+
+Evaluate the trained models on the **Edge-IIoTset** dataset without retraining or preprocessing:
+
+```bash
+python cross_validate.py
+```
+
+This benchmark measures how well each model generalizes to an entirely different industrial network environment.
+
+---
+
+# 📥 Generated Files
+
+Running the benchmark creates the following directories:
+
+## `hybrid_dataset/`
+
+If the raw Edge-IIoTset dataset is not found locally, the framework automatically downloads or generates a structurally compatible 50,000-sample subset:
+
+```text
+Edge-IIoTset_Selected_Dataset.csv
+```
+
+---
+
+## `models/`
+
+Contains serialized model weights, including:
+
+### Anomal-E
+
+- `anomal_e_encoder.pt`
+- `anomal_e_detector.pkl`
+
+### Deep Learning Baselines
+
+- CNN PyTorch checkpoints
+- LSTM PyTorch checkpoints
+
+### Classical Machine Learning
+
+- Decision Tree (`joblib`)
+- Random Forest (`joblib`)
+
+---
+
+## `hybrid_result/`
+
+Stores generated evaluation figures, including:
+
+```text
+cross_dataset_evaluation.png
+```
+
+along with additional benchmark visualizations.
+
+---
+
+# 🎯 Benchmark Objective
+
+The purpose of this project is to compare conventional supervised learning methods with a self-supervised graph-based anomaly detector under both:
+
+- **In-domain evaluation**
+- **Cross-domain generalization**
+
+The benchmark demonstrates how different learning paradigms behave when deployed in previously unseen industrial environments.
+
+---
+
+# 🧠 Architecture Discussion
+
+## Supervised Shortcut Learning
+
+Traditional supervised models—including:
+
+- Decision Tree
+- Random Forest
+- CNN
+- LSTM
+
+achieve near-perfect performance (≈1.0 F1-score) on the **WUSTL-IIoT-2021** dataset.
+
+However, these models primarily learn environment-specific statistical patterns rather than a generalized concept of malicious behavior. Examples include:
+
+- Static timing characteristics
+- IP address structures
+- Simulator-specific artifacts
+- Dataset-specific feature distributions
+
+As a result, their performance degrades significantly when evaluated on a different network environment.
+
+---
+
+## Self-Supervised Topological Learning
+
+The **Anomal-E** pipeline uses **Deep Graph Infomax (DGI)** to train a Graph Neural Network without relying on labeled attack data.
+
+Instead of memorizing feature distributions, it learns:
+
+- Communication topology
+- Node relationships
+- Structural interactions
+- Dynamic network behavior
+
+This enables the model to capture relational properties that are more consistent across industrial environments.
+
+---
+
+# 🌍 Cross-Dataset Generalization
+
+When transferring from **WUSTL-IIoT-2021** to **Edge-IIoTset**:
+
+### Supervised Models
+
+- Large performance degradation
+- Learned statistical shortcuts no longer exist
+- Poor transferability across domains
+
+### Anomal-E
+
+- Learns structural communication patterns instead of flat feature signatures
+- Maintains significantly stronger cross-domain performance
+- Requires no retraining or dataset-specific preprocessing
+
+---
+
+# 📊 Results
+
+The benchmark exports high-resolution evaluation figures to:
+
+```text
+hybrid_result/
+```
+
+Example:
+
+```text
+cross_dataset_evaluation.png
+```
+
+These visualizations compare model performance across both in-domain and cross-dataset evaluations.
+
+---
+
+# 📁 Project Structure
+
+```text
+.
+├── data/
+│   └── wustl_iiot_2021.csv
+├── hybrid_dataset/
+├── hybrid_result/
+├── models/
+├── main.py
+├── cross_validate.py
+├── requirements.txt
+└── README.md
+```

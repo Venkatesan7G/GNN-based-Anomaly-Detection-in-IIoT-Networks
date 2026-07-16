@@ -1,0 +1,15 @@
+=========================================================
+      PUBLIC DIRECT-DOWNLOAD EVALUATION METRIC SUMMARY
+ Training Source Network: WUSTL-IIoT-2021
+ Public Evaluation Target: UNSW-NB15 (Zero-Day Network)
+=========================================================
+
+                         Precision  Recall  F1-Score
+CNN Classifier              0.0000  0.0000    0.0000
+LSTM Classifier             0.0000  0.0000    0.0000
+Anomal-E (GNN PIPELINE)     0.5516  0.1503    0.2362
+
+=========================================================
+Methodological Verification Notes:
+- All network-flow features aligned using direct HTTP retrieval.
+- Test completely reproducible; zero logins, API keys, or manual downloads required.

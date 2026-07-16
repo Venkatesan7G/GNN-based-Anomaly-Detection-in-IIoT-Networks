@@ -1,9 +1,9 @@
 """
-INTEGRATED PRODUCTION TRAINING & SERIALIZATION ENGINE
-=====================================================
+INTEGRATED PRODUCTION TRAINING & SERIALIZATION ENGINE (STABILIZED BINARY PIPELINE)
+=================================================================================
 Description:
-    Runs supervised baselines alongside the self-supervised Anomal-E
-    architecture using explicit structural contamination boundaries.
+    Orchestrates the training loops for the classic classifiers, deep learning baselines,
+    and self-supervised Anomal-E model on binary classifications.
 """
 
 import os
@@ -29,16 +29,19 @@ from evaluate import evaluate_and_save
 
 def main():
     csv_path = "data/wustl_iiot_2021.csv"
-    print("[Step 1/4] Starting data preprocessing configurations...")
-    X_train, X_test, y_train, y_test, graph_data, encoder = load_and_preprocess_data(csv_path)
+    if not os.path.exists(csv_path):
+        print(f"[Error] Source dataset not found at {csv_path}. Run run_pipeline.py first.")
+        return
+        
+    print("[Step 1/4] Preprocessing WUSTL-IIoT-2021 data into binary schemas...")
+    X_train, X_test, y_train, y_test, graph_data, scaler, feature_cols = load_and_preprocess_data(csv_path)
     
-    normal_label_idx = encoder.transform(['Normal'])[0] if 'Normal' in encoder.classes_ else 0
-    
-    binary_y_train = np.where(y_train == normal_label_idx, 0, 1)
-    binary_y_test = np.where(y_test == normal_label_idx, 0, 1)
+    # Save objects needed for aligned generalization in cross_validate.py
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(scaler, "models/scaler.pkl")
+    joblib.dump(feature_cols, "models/feature_cols.pkl")
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    os.makedirs("models", exist_ok=True)
     
     # -----------------------------------------------------------------
     # Step 2: Tabular Base Testing Loop & Serialization
@@ -47,19 +50,19 @@ def main():
     tabular_models = get_tabular_models()
     for name, model in tabular_models.items():
         print(f"  --> Processing execution path: {name}")
-        model.fit(X_train, binary_y_train)
+        model.fit(X_train, y_train)
         preds = model.predict(X_test)
-        evaluate_and_save(name, binary_y_test, preds)
+        evaluate_and_save(name, y_test, preds)
         
         sanitized_filename = name.lower().replace(" ", "_")
         joblib.dump(model, f"models/{sanitized_filename}_model.pkl")
         
     # -----------------------------------------------------------------
-    # Step 3: Deep Learning Sequence Loops & Serialization (Batched for OOM Safety)
+    # Step 3: Deep Learning Sequence Loops & Serialization
     # -----------------------------------------------------------------
     print("\n[Step 3/4] Running Specialized Deep Learning Sequence Loops...")
     train_loader = DataLoader(
-        TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(binary_y_train, dtype=torch.long)), 
+        TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.long)), 
         batch_size=256, shuffle=True
     )
     
@@ -97,7 +100,7 @@ def main():
                 test_preds_list.append(batch_preds)
                 
         preds = np.concatenate(test_preds_list)
-        evaluate_and_save(name, binary_y_test, preds)
+        evaluate_and_save(name, y_test, preds)
         
         del test_preds_list
         torch.cuda.empty_cache()
@@ -137,8 +140,7 @@ def main():
     with torch.no_grad():
         train_embeddings = encoder_net(edge_index, edge_feats).cpu().numpy()[train_mask]
         
-    # AUTOMATED STABILIZATION: Align contamination to the true proportional split of the training field
-    calculated_contamination = float(np.sum(binary_y_train == 1) / len(binary_y_train))
+    calculated_contamination = float(np.sum(y_train == 1) / len(y_train))
     calculated_contamination = max(0.01, min(0.49, calculated_contamination))
     
     downstream_detector = get_anomal_e_detector(contamination=calculated_contamination)
@@ -151,10 +153,10 @@ def main():
     evaluation_ready_system = FullAnomalEPipeline.load_pipeline(fresh_encoder, device=device)
     
     raw_decisions = evaluation_ready_system.predict(edge_index, edge_feats, mask=test_mask)
-    binary_preds = np.where(raw_decisions == 1, 0, 1)
+    binary_preds = np.where(raw_decisions == 1, 0, 1) # Map Isolation Forest outcome (-1/1) to (1/0)
     
     print("\n[Evaluation Summary] True Unsupervised Binary Anomal-E Outcomes:")
-    evaluate_and_save("Anomal-E (Full Pipeline)", binary_y_test, binary_preds)
+    evaluate_and_save("Anomal-E (Full Pipeline)", y_test, binary_preds)
 
 if __name__ == "__main__":
     main()
