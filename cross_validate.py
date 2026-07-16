@@ -164,20 +164,17 @@ if os.path.exists("models/lstm_model.pt"):
         compile_metrics("LSTM Classifier", y_target, preds)
     except Exception as e:
         print(f"  [Error] LSTM failed to validate: {e}")
-        
+
 # 3. Anomal-E (GNN + Self-Supervised Outlier Detection Pipeline)
 if os.path.exists("models/anomal_e_encoder.pt"):
     try:
-        # 1. Re-instantiate the encoder with the target node dimension
+        # 1. Re-instantiate encoder with target size
         fresh_encoder = EGraphSAGEEncoder(len(unique_nodes), num_source_features, embedding_dim=32)
         
-        # 2. Load trained GNN structural weights
+        # 2. Load and filter weights (preserving structural intelligence)
         checkpoint = torch.load("models/anomal_e_encoder.pt", map_location=device, weights_only=True)
         model_state = fresh_encoder.state_dict()
-        filtered_checkpoint = {
-            k: v for k, v in checkpoint.items()
-            if k in model_state and v.shape == model_state[k].shape
-        }
+        filtered_checkpoint = {k: v for k, v in checkpoint.items() if k in model_state and v.shape == model_state[k].shape}
         fresh_encoder.load_state_dict(filtered_checkpoint, strict=False)
         fresh_encoder.to(device)
         fresh_encoder.eval()
@@ -186,20 +183,28 @@ if os.path.exists("models/anomal_e_encoder.pt"):
         with torch.no_grad():
             target_embeddings = fresh_encoder(edge_index_tensor, X_tensor).cpu().numpy()
         
-        # 4. Calibration: Let the downstream Isolation Forest fit to a portion 
-        # of the new target embeddings so it learns the new network's baseline.
-        # This represents true zero-day unsupervised calibration.
+        # 4. REFINED CALIBRATION: Use a subset to learn baseline normal behavior
+        # Instead of fitting on the whole dataset (which causes the 15% random drift), 
+        # we isolate a 'normal-leaning' subset to calibrate the detector's decision boundary.
         from sklearn.ensemble import IsolationForest
-        calibrated_detector = IsolationForest(contamination=0.15, random_state=42, n_jobs=-1)
-        calibrated_detector.fit(target_embeddings)
         
-        # 5. Predict
-        raw_preds = calibrated_detector.predict(target_embeddings)
+        # Select first 20% of data as 'unlabeled' calibration set
+        n_calib = int(0.2 * len(target_embeddings))
+        calib_set = target_embeddings[:n_calib]
+        eval_set = target_embeddings[n_calib:]
+        y_eval = y_target[n_calib:]
+        
+        # Fit on calibration set, predict on evaluation set
+        detector = IsolationForest(contamination=0.10, random_state=42, n_jobs=-1)
+        detector.fit(calib_set) 
+        
+        raw_preds = detector.predict(eval_set)
         binary_preds = np.where(raw_preds == -1, 1, 0)
         
-        compile_metrics("Anomal-E (GNN PIPELINE)", y_target, binary_preds)
+        compile_metrics("Anomal-E (GNN PIPELINE)", y_eval, binary_preds)
     except Exception as e:
         print(f"  [Error] Anomal-E inductive transfer failed: {e}")
+        
 # -----------------------------------------------------------------
 # Phase 6: Save Comparative Summary Report
 # -----------------------------------------------------------------

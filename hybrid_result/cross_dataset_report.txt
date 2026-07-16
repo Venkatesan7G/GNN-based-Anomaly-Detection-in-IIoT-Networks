@@ -7,7 +7,7 @@
                          Precision  Recall  F1-Score
 CNN Classifier              0.0000  0.0000    0.0000
 LSTM Classifier             0.0000  0.0000    0.0000
-Anomal-E (GNN PIPELINE)     0.5516  0.1503    0.2362
+Anomal-E (GNN PIPELINE)     0.4341  0.0998    0.1623
 
 =========================================================
 Methodological Verification Notes:
